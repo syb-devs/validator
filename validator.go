@@ -2,7 +2,7 @@ package validator
 
 import (
 	"errors"
-	"fmt"
+	// "fmt"
 	"reflect"
 	"strings"
 )
@@ -55,11 +55,11 @@ func (e *ruleExtractor) next() bool {
 func (e *ruleExtractor) extract() rules {
 	rules := make(rules, 0)
 	index := e.current - 1
-	fieldName := reflect.ValueOf(e.subject).Elem().Field(e.current - 1).String()
-
+	elem := reflect.TypeOf(e.subject).Elem().Field(index)
+	fieldName := elem.Name
 	var ruleName, ruleParams string
 
-	tag := reflect.TypeOf(e.subject).Elem().Field(index).Tag.Get("validation")
+	tag := elem.Tag.Get("validation")
 	for _, ruleStr := range strings.Split(tag, "|") {
 		ruleSplit := strings.Split(ruleStr, ":")
 		ruleName = ruleSplit[0]
@@ -68,7 +68,6 @@ func (e *ruleExtractor) extract() rules {
 		} else {
 			ruleParams = ""
 		}
-		fmt.Println(ruleName, ruleParams)
 		rule, err := getRule(ruleName, ruleParams, fieldName, e.subject)
 		if err == nil {
 			rules = append(rules, rule)

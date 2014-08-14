@@ -7,6 +7,7 @@ import (
 
 type User struct {
 	Email string `validation:"min_length:1" `
+	// email string `validation:"min_length:10" `
 }
 
 func TestMinLength(t *testing.T) {
