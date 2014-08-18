@@ -2,9 +2,13 @@ package validator
 
 import (
 	"errors"
-	// "fmt"
 	"reflect"
 	"strings"
+)
+
+var (
+	ErrStructPointerExpected = errors.New("The subject for validation must be a pointer to a struct type")
+	ErrRuleNotFound          = errors.New("Rule not found")
 )
 
 type field struct {
@@ -13,11 +17,31 @@ type field struct {
 }
 
 type inputError struct {
-	field   field
+	field   string
 	message string
 }
 
+func (e inputError) Message() string {
+	return e.message
+}
+
+func (e inputError) String() string {
+	return e.Message()
+}
+
 type inputErrors []inputError
+
+func (e inputErrors) String() string {
+	var r string
+	for _, err := range e {
+		r = r + err.String()
+	}
+	return r
+}
+
+func (e inputErrors) Count() int {
+	return len(e)
+}
 
 type Rule interface {
 	Validate() (*inputError, error)
@@ -78,7 +102,9 @@ func (e *ruleExtractor) extract() rules {
 }
 
 func Validate(obj interface{}) (inputErrors, error) {
-	//TODO: validate obj is a pointer to struct, error otherwise
+	if isStructPointer(obj) == false {
+		return nil, ErrStructPointerExpected
+	}
 	errors := make(inputErrors, 0)
 	var rules rules
 
@@ -99,11 +125,20 @@ func Validate(obj interface{}) (inputErrors, error) {
 	return errors, nil
 }
 
+func isStructPointer(obj interface{}) bool {
+	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
+		return false
+	}
+	if reflect.ValueOf(obj).Elem().Kind() != reflect.Struct {
+		return false
+	}
+	return true
+}
+
 func getRule(name string, params string, fieldName string, obj interface{}) (Rule, error) {
 	ruleConstructor := ruleMap[name]
 	if ruleConstructor == nil {
-		//TODO: specify which rule (or use custom error struct)
-		return nil, errors.New("Rule not found")
+		return nil, ErrRuleNotFound
 	}
 	return ruleConstructor(fieldName, params, obj)
 }
