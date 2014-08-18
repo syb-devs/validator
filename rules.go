@@ -9,6 +9,7 @@ import (
 
 func init() {
 	RegisterRule("min_length", newMinLengthRule)
+	RegisterRule("max_length", newMaxLengthRule)
 }
 
 type minLengthRule struct {
@@ -17,9 +18,10 @@ type minLengthRule struct {
 	data   interface{}
 }
 
-func newMinLengthRule(fieldName string, params string, data interface{}) (Rule, error) {
+/* MIN LENGHT */
+func newMinLengthRule(fieldName string, ruleValue string, data interface{}) (Rule, error) {
 	//Todo: strict string to int parsing
-	lengthParsed, err := strconv.Atoi(params)
+	lengthParsed, err := strconv.Atoi(ruleValue)
 	if err != nil {
 		return nil, err
 	}
@@ -54,4 +56,49 @@ func (r *minLengthRule) Validate() (*inputError, error) {
 
 func (r *minLengthRule) String() string {
 	return ruleString("min length", r.field, r.data)
+}
+
+/* MAX LENGHT */
+type maxLengthRule struct {
+	field  string
+	length int
+	data   interface{}
+}
+
+func newMaxLengthRule(fieldName string, ruleValue string, data interface{}) (Rule, error) {
+	lengthParsed, err := strconv.Atoi(ruleValue)
+	if err != nil {
+		return nil, errors.New("rule maxLength must be an integer")
+	}
+	return &maxLengthRule{field: fieldName, length: lengthParsed, data: data}, nil
+}
+
+func (r *maxLengthRule) Validate() (*inputError, error) {
+	if !fieldPresent(r.data, r.field) {
+		return nil, fmt.Errorf("field %s not present and tried to evaluate", r.field)
+	}
+
+	fInterface := getInterfaceValue(r.data, r.field)
+
+	var length int
+
+	switch v := fInterface.(type) {
+	case string:
+		length = utf8.RuneCountInString(v)
+	case int:
+		length = utf8.RuneCountInString(strconv.Itoa(v))
+	default:
+		return nil, errors.New("Unsupported type for max_length rule")
+	}
+
+	if length > r.length {
+		message := fmt.Sprintf("The field %s should have a maximum length of %d characters", r.field, r.length)
+		return &inputError{field: r.field, message: message}, nil
+	}
+
+	return nil, nil
+}
+
+func (r *maxLengthRule) String() string {
+	return ruleString("max length", r.field, r.data)
 }
