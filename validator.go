@@ -191,3 +191,12 @@ func getInterfaceValue(data interface{}, name string) interface{} {
 func ruleString(ruleName, structField string, data interface{}) string {
 	return fmt.Sprintf("<<Validation Rule: %s. Field: %s. Data: %s>>", ruleName, structField, fmt.Sprintf("%+v", data))
 }
+
+func toString(i interface{}) (string, bool) {
+	switch v := i.(type) {
+	case string, *string, int, *int, int32, *int32, int64, *int64:
+		return fmt.Sprintf("%v", v), true
+	default:
+		return "", false
+	}
+}

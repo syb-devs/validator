@@ -10,12 +10,13 @@ import (
 func TestMinLengthOK(t *testing.T) {
 	type data struct {
 		FieldOne string `validation:"min_length:3" `
+		FieldTwo int    `validation:"min_length:4" `
 	}
 
 	v := validator.New()
 
 	err := v.Validate(
-		&data{FieldOne: "foo"})
+		&data{FieldOne: "foo", FieldTwo: 1456})
 	if err != nil {
 		t.Errorf("Error during validation: %s", err.Error())
 	}

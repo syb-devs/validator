@@ -33,21 +33,13 @@ func (r *minLengthRule) Validate() (*inputError, error) {
 		return nil, fmt.Errorf("field %s not present and tried to evaluate", r.field)
 	}
 
-	var length int
 	fInterface := getInterfaceValue(r.data, r.field)
-
-	switch v := fInterface.(type) {
-	case string:
-		length = utf8.RuneCountInString(v)
-	case *string:
-		length = utf8.RuneCountInString(*v)
-	case int:
-		length = utf8.RuneCountInString(strconv.Itoa(v))
-	case *int:
-		length = utf8.RuneCountInString(strconv.Itoa(*v))
-	default:
+	str, ok := toString(fInterface)
+	if ok == false {
 		return nil, errors.New("Unsupported type for min_length rule")
 	}
+
+	length := utf8.RuneCountInString(str)
 
 	if length < r.length {
 		message := fmt.Sprintf("The field %s should have a minimum length of %d characters", r.field, r.length)
@@ -82,17 +74,12 @@ func (r *maxLengthRule) Validate() (*inputError, error) {
 	}
 
 	fInterface := getInterfaceValue(r.data, r.field)
-
-	var length int
-
-	switch v := fInterface.(type) {
-	case string:
-		length = utf8.RuneCountInString(v)
-	case int:
-		length = utf8.RuneCountInString(strconv.Itoa(v))
-	default:
-		return nil, errors.New("Unsupported type for max_length rule")
+	str, ok := toString(fInterface)
+	if ok == false {
+		return nil, errors.New("Unsupported type for min_length rule")
 	}
+
+	length := utf8.RuneCountInString(str)
 
 	if length > r.length {
 		message := fmt.Sprintf("The field %s should have a maximum length of %d characters", r.field, r.length)
