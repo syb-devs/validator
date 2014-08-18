@@ -11,6 +11,15 @@ var (
 	ErrRuleNotFound          = errors.New("Rule not found")
 )
 
+type validator struct {
+	Rules  rules
+	Errors inputErrors
+}
+
+func New() *validator {
+	return &validator{}
+}
+
 type field struct {
 	name  string
 	value interface{}
@@ -49,6 +58,10 @@ type Rule interface {
 
 type rules []Rule
 
+func (r rules) Count() int {
+	return len(r)
+}
+
 type RuleConstructor func(fieldName string, params string, dataStruct interface{}) (Rule, error)
 
 var ruleMap = make(map[string]RuleConstructor, 0)
@@ -63,9 +76,9 @@ type ruleExtractor struct {
 	current   int
 }
 
-func newruleExtractor(obj interface{}) *ruleExtractor {
-	numFields := reflect.ValueOf(obj).Elem().NumField()
-	return &ruleExtractor{subject: obj, numFields: numFields}
+func newruleExtractor(data interface{}) *ruleExtractor {
+	numFields := reflect.ValueOf(data).Elem().NumField()
+	return &ruleExtractor{subject: data, numFields: numFields}
 }
 
 func (e *ruleExtractor) next() bool {
@@ -84,11 +97,14 @@ func (e *ruleExtractor) extract() rules {
 	var ruleName, ruleParams string
 
 	tag := elem.Tag.Get("validation")
+	if tag == "" {
+		return rules
+	}
 	for _, ruleStr := range strings.Split(tag, "|") {
-		ruleSplit := strings.Split(ruleStr, ":")
-		ruleName = ruleSplit[0]
-		if len(ruleSplit) > 1 {
-			ruleParams = ruleSplit[1]
+		ruleParts := strings.Split(ruleStr, ":")
+		ruleName = ruleParts[0]
+		if len(ruleParts) > 1 {
+			ruleParams = ruleParts[1]
 		} else {
 			ruleParams = ""
 		}
@@ -101,44 +117,70 @@ func (e *ruleExtractor) extract() rules {
 	return rules
 }
 
-func Validate(obj interface{}) (inputErrors, error) {
-	if isStructPointer(obj) == false {
-		return nil, ErrStructPointerExpected
+func (v *validator) Validate(data interface{}) error {
+	if isStructPointer(data) == false {
+		return ErrStructPointerExpected
 	}
-	errors := make(inputErrors, 0)
+	v.Errors = make(inputErrors, 0)
+
 	var rules rules
-
-	for extractor := newruleExtractor(obj); extractor.next(); {
+	for extractor := newruleExtractor(data); extractor.next(); {
 		rules = extractor.extract()
-		for _, rule := range rules {
-			inputError, err := rule.Validate()
+		v.Rules = append(v.Rules, rules...)
+	}
 
-			if err != nil {
-				return errors, err
-			}
+	for _, rule := range v.Rules {
+		inputError, err := checkRule(rule)
 
-			if inputError != nil {
-				errors = append(errors, *inputError)
-			}
+		if err != nil {
+			return err
+		}
+
+		if inputError != nil {
+			v.Errors = append(v.Errors, *inputError)
 		}
 	}
-	return errors, nil
+	return nil
 }
 
-func isStructPointer(obj interface{}) bool {
-	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
+func checkRule(rule Rule) (ierr *inputError, err error) {
+	defer func(ierr *inputError, e error) {
+		if err := recover(); err != nil {
+			ierr = nil
+			if errString, ok := err.(string); ok {
+				e = errors.New(errString)
+			}
+			return
+		}
+	}(ierr, err)
+
+	ierr, err = rule.Validate()
+	return
+}
+
+func isStructPointer(data interface{}) bool {
+	if reflect.TypeOf(data).Kind() != reflect.Ptr {
 		return false
 	}
-	if reflect.ValueOf(obj).Elem().Kind() != reflect.Struct {
+	if reflect.ValueOf(data).Elem().Kind() != reflect.Struct {
 		return false
 	}
 	return true
 }
 
-func getRule(name string, params string, fieldName string, obj interface{}) (Rule, error) {
+func getRule(name string, params string, fieldName string, data interface{}) (Rule, error) {
 	ruleConstructor := ruleMap[name]
 	if ruleConstructor == nil {
 		return nil, ErrRuleNotFound
 	}
-	return ruleConstructor(fieldName, params, obj)
+	return ruleConstructor(fieldName, params, data)
+}
+
+func fieldPresent(data interface{}, name string) bool {
+	_, present := reflect.TypeOf(data).Elem().FieldByName(name)
+	return present
+}
+
+func getInterfaceValue(data interface{}, name string) interface{} {
+	return reflect.ValueOf(data).Elem().FieldByName(name).Interface()
 }

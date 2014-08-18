@@ -3,7 +3,6 @@ package validator
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"unicode/utf8"
 )
@@ -28,12 +27,11 @@ func newMinLengthRule(fieldName string, params string, data interface{}) (Rule, 
 }
 
 func (r *minLengthRule) Validate() (*inputError, error) {
-	_, present := reflect.TypeOf(r.data).Elem().FieldByName(r.field)
-	if !present {
+	if !fieldPresent(r.data, r.field) {
 		return nil, fmt.Errorf("field %s not present and tried to evaluate", r.field)
 	}
 
-	fInterface := reflect.ValueOf(r.data).Elem().FieldByName(r.field).Interface()
+	fInterface := getInterfaceValue(r.data, r.field)
 
 	var length int
 
