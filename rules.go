@@ -33,15 +33,18 @@ func (r *minLengthRule) Validate() (*inputError, error) {
 		return nil, fmt.Errorf("field %s not present and tried to evaluate", r.field)
 	}
 
-	fInterface := getInterfaceValue(r.data, r.field)
-
 	var length int
+	fInterface := getInterfaceValue(r.data, r.field)
 
 	switch v := fInterface.(type) {
 	case string:
 		length = utf8.RuneCountInString(v)
+	case *string:
+		length = utf8.RuneCountInString(*v)
 	case int:
 		length = utf8.RuneCountInString(strconv.Itoa(v))
+	case *int:
+		length = utf8.RuneCountInString(strconv.Itoa(*v))
 	default:
 		return nil, errors.New("Unsupported type for min_length rule")
 	}
