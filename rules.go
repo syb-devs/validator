@@ -21,7 +21,7 @@ func newMinLengthRule(fieldName string, params string, data interface{}) (Rule, 
 	//Todo: strict string to int parsing
 	lengthParsed, err := strconv.Atoi(params)
 	if err != nil {
-		return nil, errors.New("rule minLength must be an integer")
+		return nil, err
 	}
 	return &minLengthRule{field: fieldName, length: lengthParsed, data: data}, nil
 }
@@ -50,4 +50,8 @@ func (r *minLengthRule) Validate() (*inputError, error) {
 	}
 
 	return nil, nil
+}
+
+func (r *minLengthRule) String() string {
+	return ruleString("min length", r.field, r.data)
 }

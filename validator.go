@@ -2,6 +2,7 @@ package validator
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -154,6 +155,8 @@ func checkRule(rule Rule) (ierr *inputError, err error) {
 		}
 	}(ierr, err)
 
+	//fmt.Printf("Checking rule: %s...\n", rule)
+
 	ierr, err = rule.Validate()
 	return
 }
@@ -183,4 +186,8 @@ func fieldPresent(data interface{}, name string) bool {
 
 func getInterfaceValue(data interface{}, name string) interface{} {
 	return reflect.ValueOf(data).Elem().FieldByName(name).Interface()
+}
+
+func ruleString(ruleName, structField string, data interface{}) string {
+	return fmt.Sprintf("<<Validation Rule: %s. Field: %s. Data: %s>>", ruleName, structField, fmt.Sprintf("%+v", data))
 }
