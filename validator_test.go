@@ -30,8 +30,8 @@ func TestUnexportedField(t *testing.T) {
 	v := validator.New()
 	err := v.Validate(&data{})
 
-	if err != nil {
-		t.Errorf("Error during validation")
+	if err == nil {
+		t.Errorf("Expecting error: cannot return value obtained from unexported field or method")
 	}
 }
 

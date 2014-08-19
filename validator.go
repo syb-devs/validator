@@ -15,6 +15,7 @@ var (
 type validator struct {
 	Rules  rules
 	Errors inputErrors
+	err    error
 }
 
 func New() *validator {
@@ -131,34 +132,37 @@ func (v *validator) Validate(data interface{}) error {
 	}
 
 	for _, rule := range v.Rules {
-		inputError, err := checkRule(rule)
-
-		if err != nil {
-			return err
-		}
-
-		if inputError != nil {
-			v.Errors = append(v.Errors, *inputError)
+		v.safeCheck(rule)
+		if v.err != nil {
+			return v.err
 		}
 	}
 	return nil
 }
 
-func checkRule(rule Rule) (ierr *inputError, err error) {
-	defer func(ierr *inputError, e error) {
-		if err := recover(); err != nil {
-			ierr = nil
-			if errString, ok := err.(string); ok {
-				e = errors.New(errString)
+func (v *validator) safeCheck(rule Rule) {
+	defer func() {
+		if recErr := recover(); recErr != nil {
+			switch errv := recErr.(type) {
+			case string:
+				v.err = errors.New(errv)
+			case error:
+				v.err = errv
+			default:
+				v.err = errors.New(fmt.Sprintf("Panic recovered with type: %+v", recErr))
 			}
-			return
 		}
-	}(ierr, err)
+	}()
 
-	//fmt.Printf("Checking rule: %s...\n", rule)
+	ierr, err := rule.Validate()
 
-	ierr, err = rule.Validate()
-	return
+	if ierr != nil {
+		v.Errors = append(v.Errors, *ierr)
+	}
+
+	if err != nil {
+		v.err = err
+	}
 }
 
 func isStructPointer(data interface{}) bool {
@@ -179,10 +183,10 @@ func getRule(name string, params string, fieldName string, data interface{}) (Ru
 	return ruleConstructor(fieldName, params, data)
 }
 
-func fieldPresent(data interface{}, name string) bool {
-	_, present := reflect.TypeOf(data).Elem().FieldByName(name)
-	return present
-}
+//func fieldPresent(data interface{}, name string) bool {
+//	_, present := reflect.TypeOf(data).Elem().FieldByName(name)
+//	return present
+//}
 
 func getInterfaceValue(data interface{}, name string) interface{} {
 	return reflect.ValueOf(data).Elem().FieldByName(name).Interface()
@@ -192,11 +196,20 @@ func ruleString(ruleName, structField string, data interface{}) string {
 	return fmt.Sprintf("<<Validation Rule: %s. Field: %s. Data: %s>>", ruleName, structField, fmt.Sprintf("%+v", data))
 }
 
-func toString(i interface{}) (string, bool) {
-	switch v := i.(type) {
+// toString
+func toString(value interface{}) (string, bool) {
+	switch v := value.(type) {
 	case string, *string, int, *int, int32, *int32, int64, *int64:
 		return fmt.Sprintf("%v", v), true
 	default:
 		return "", false
 	}
+}
+
+func mustStringify(value interface{}) string {
+	strVal, ok := toString(value)
+	if ok == false {
+		panic(ErrUnsupportedType)
+	}
+	return strVal
 }

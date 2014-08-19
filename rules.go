@@ -3,6 +3,7 @@ package validator
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"unicode/utf8"
 )
@@ -10,7 +11,18 @@ import (
 func init() {
 	RegisterRule("min_length", newMinLengthRule)
 	RegisterRule("max_length", newMaxLengthRule)
+	RegisterRule("email", newEmailRule)
+
+	emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
 }
+
+var (
+	ErrUnsupportedType = errors.New("Unsupported type for rule")
+)
+
+var (
+	emailRegexp *regexp.Regexp
+)
 
 type minLengthRule struct {
 	field  string
@@ -29,14 +41,10 @@ func newMinLengthRule(fieldName string, ruleValue string, data interface{}) (Rul
 }
 
 func (r *minLengthRule) Validate() (*inputError, error) {
-	if !fieldPresent(r.data, r.field) {
-		return nil, fmt.Errorf("field %s not present and tried to evaluate", r.field)
-	}
-
 	fInterface := getInterfaceValue(r.data, r.field)
 	str, ok := toString(fInterface)
 	if ok == false {
-		return nil, errors.New("Unsupported type for min_length rule")
+		return nil, ErrUnsupportedType
 	}
 
 	length := utf8.RuneCountInString(str)
@@ -69,14 +77,10 @@ func newMaxLengthRule(fieldName string, ruleValue string, data interface{}) (Rul
 }
 
 func (r *maxLengthRule) Validate() (*inputError, error) {
-	if !fieldPresent(r.data, r.field) {
-		return nil, fmt.Errorf("field %s not present and tried to evaluate", r.field)
-	}
-
 	fInterface := getInterfaceValue(r.data, r.field)
 	str, ok := toString(fInterface)
 	if ok == false {
-		return nil, errors.New("Unsupported type for min_length rule")
+		return nil, ErrUnsupportedType
 	}
 
 	length := utf8.RuneCountInString(str)
@@ -90,5 +94,27 @@ func (r *maxLengthRule) Validate() (*inputError, error) {
 }
 
 func (r *maxLengthRule) String() string {
+	return ruleString("max length", r.field, r.data)
+}
+
+type emailRule struct {
+	field string
+	data  interface{}
+}
+
+func newEmailRule(fieldName string, ruleValue string, data interface{}) (Rule, error) {
+	return &emailRule{field: fieldName, data: data}, nil
+}
+
+func (r *emailRule) Validate() (*inputError, error) {
+	strVal := mustStringify(getInterfaceValue(r.data, r.field))
+
+	if emailRegexp.MatchString(strVal) {
+		return nil, nil
+	}
+	return &inputError{field: r.field, message: "Not a valid email"}, nil
+}
+
+func (r *emailRule) String() string {
 	return ruleString("max length", r.field, r.data)
 }
