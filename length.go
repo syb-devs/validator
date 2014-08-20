@@ -7,8 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-type lengthRule struct {
-}
+type lengthRule struct{}
 
 func (r *lengthRule) Validate(data interface{}, field string, params map[string]string) error {
 	op := params["op"]
@@ -46,5 +45,5 @@ func (r *lengthRule) Validate(data interface{}, field string, params map[string]
 	if ok {
 		return nil
 	}
-	return fmt.Errorf("The field %s should have a length %d %d", field, errOp, requiredLength)
+	return fmt.Errorf("The field %s should have a length %s %d. Actual length: %d", field, errOp, requiredLength, length)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 )
 
 var (
@@ -13,10 +14,31 @@ var (
 	ErrUnsupportedType       = errors.New("Unsupported type for rule")
 )
 
-var defaultValidator = New()
+var (
+	defaultValidator = New()
+	tagName          = "validation"
+)
 
 type Rule interface {
 	Validate(data interface{}, field string, params map[string]string) error
+}
+
+type errList map[string][]error
+
+func (e errList) String() string {
+	str := ""
+	for field, errors := range e {
+		str = str + field + ": "
+		for _, err := range errors {
+			str = str + err.Error() + ", "
+		}
+		str = str + "\n"
+	}
+	return str
+}
+
+func (e errList) Len() int {
+	return len(e)
 }
 
 type ruleMap map[string]Rule
@@ -24,14 +46,23 @@ type ruleMap map[string]Rule
 type validator struct {
 	registeredRules ruleMap
 	data            interface{}
-	errors          map[string][]error
+	errors          errList
 	logicError      error
+	mu              sync.RWMutex
+}
+
+func RegisterRule(name string, rule Rule) {
+	defaultValidator.RegisterRule(name, rule)
+}
+
+func TagName(name string) {
+	tagName = name
 }
 
 func New() *validator {
 	v := &validator{
 		registeredRules: make(ruleMap, 0),
-		errors:          make(map[string][]error, 0),
+		errors:          make(errList, 0),
 	}
 	v.RegisterRule("length", &lengthRule{})
 
@@ -39,12 +70,14 @@ func New() *validator {
 }
 
 func (v *validator) RegisterRule(name string, rule Rule) {
-	//TODO: mutex read / write lock
+	v.mu.Lock()
+	defer v.mu.Unlock()
 	v.registeredRules[name] = rule
 }
 
 func (v *validator) getRule(name string) (Rule, error) {
-	//TODO: mutex read lock
+	v.mu.RLock()
+	defer v.mu.RUnlock()
 	r := v.registeredRules[name]
 	if r != nil {
 		return r, nil
@@ -52,63 +85,13 @@ func (v *validator) getRule(name string) (Rule, error) {
 	return nil, ErrRuleNotFound
 }
 
-func RegisterRule(name string, rule Rule) {
-	defaultValidator.RegisterRule(name, rule)
-}
-
-type ruleExtractor struct {
-	subject   interface{}
-	numFields int
-	current   int
-}
-
-func newruleExtractor(data interface{}) *ruleExtractor {
-	numFields := reflect.ValueOf(data).Elem().NumField()
-	return &ruleExtractor{subject: data, numFields: numFields}
-}
-
-func (e *ruleExtractor) next() bool {
-	e.current++
-	if e.current > e.numFields {
-		return false
-	}
-	return true
-}
-
-//func (e *ruleExtractor) extract() (string, []Rule) {
-//	rules := make([]Rule, 0)
-//	index := e.current - 1
-//	elem := reflect.TypeOf(e.subject).Elem().Field(index)
-//	fieldName := elem.Name
-//	var ruleName, ruleParams string
-//
-//	tag := elem.Tag.Get("validation")
-//	if tag == "" {
-//		return fieldName, rules
-//	}
-//	for _, ruleStr := range strings.Split(tag, "|") {
-//		ruleParts := strings.Split(ruleStr, ":")
-//		ruleName = ruleParts[0]
-//		if len(ruleParts) > 1 {
-//			ruleParams = ruleParts[1]
-//		} else {
-//			ruleParams = ""
-//		}
-//		rule, err := getRule(ruleName, ruleParams, fieldName, e.subject)
-//		if err == nil {
-//			rules = append(rules, rule)
-//		}
-//	}
-//
-//	return fieldName, rules
-//}
-
 func (v *validator) Validate(data interface{}) error {
 	if isStructPointer(data) == false {
 		return ErrStructPointerExpected
 	}
 
-	numFields := reflect.ValueOf(data).Elem().NumField()
+	v.data = data
+	numFields := reflect.ValueOf(v.data).Elem().NumField()
 
 	for curField := 0; curField < numFields; curField++ {
 		err := v.validateField(curField)
@@ -124,7 +107,7 @@ func (v *validator) validateField(i int) error {
 	elem := reflect.TypeOf(v.data).Elem().Field(i)
 	fieldName := elem.Name
 
-	tag := elem.Tag.Get("validation")
+	tag := elem.Tag.Get(tagName)
 	if tag == "" {
 		return nil
 	}
@@ -140,6 +123,9 @@ func (v *validator) validateField(i int) error {
 
 		for _, paramPart := range strings.Split(ruleParamsStr, ",") {
 			var tmpParam = strings.Split(paramPart, ":")
+			if len(tmpParam) != 2 {
+				return errors.New("Invalid format for params")
+			}
 			ruleParams[tmpParam[0]] = tmpParam[1]
 		}
 
@@ -156,8 +142,31 @@ func (v *validator) validateField(i int) error {
 		}
 
 		v.safeExec(fieldCheck)
+		if v.logicError != nil {
+			return v.logicError
+		}
 	}
 	return nil
+}
+
+func (v *validator) Errors() *errList {
+	errors := v.errors
+	if len(errors) == 0 {
+		return nil
+	}
+	return &errors
+}
+
+func (v *validator) ErrorsByField(field string) *[]error {
+	if field == "" {
+		return nil
+	}
+
+	errors := v.errors[field]
+	if errors == nil {
+		return nil
+	}
+	return &errors
 }
 
 type safeFunc func()
@@ -187,11 +196,6 @@ func isStructPointer(data interface{}) bool {
 	}
 	return true
 }
-
-//func fieldPresent(data interface{}, name string) bool {
-//	_, present := reflect.TypeOf(data).Elem().FieldByName(name)
-//	return present
-//}
 
 func getInterfaceValue(data interface{}, name string) interface{} {
 	return reflect.ValueOf(data).Elem().FieldByName(name).Interface()
