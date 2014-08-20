@@ -5,7 +5,20 @@ import (
 	"testing"
 )
 
-func TestStructPointer(t *testing.T) {
+func TestValidate(t *testing.T) {
+	type data struct {
+		Field string `validation:"length:>4" `
+	}
+
+	v := validator.New()
+	err := v.Validate(&data{})
+
+	if err != nil {
+		t.Errorf("Holy shit! %s", err)
+	}
+}
+
+func _TestStructPointer(t *testing.T) {
 	type data struct {
 		Field string `validation:"min_length:4" `
 	}
@@ -22,7 +35,7 @@ func TestStructPointer(t *testing.T) {
 	}
 }
 
-func TestUnexportedField(t *testing.T) {
+func _TestUnexportedField(t *testing.T) {
 	type data struct {
 		field string `validation:"min_length:4" `
 	}
@@ -35,7 +48,7 @@ func TestUnexportedField(t *testing.T) {
 	}
 }
 
-func TestEmptyValidationTag(t *testing.T) {
+func _TestEmptyValidationTag(t *testing.T) {
 	type data struct {
 		field string
 	}

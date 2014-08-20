@@ -1,0 +1,39 @@
+package validator
+
+import (
+	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"unicode/utf8"
+)
+
+func init() {
+	RegisterRule("min_length", newMinLengthRule)
+
+	emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$`)
+}
+
+var (
+	ErrUnsupportedType = errors.New("Unsupported type for rule")
+)
+
+var (
+	emailRegexp *regexp.Regexp
+)
+
+type minLengthRule struct{}
+
+func (r *minLengthRule) Validate(data interface{}, field, param string) error {
+	requiredLength, err := strconv.Atoi(param)
+	if err != nil {
+		return nil, err
+	}
+	fieldVal := getInterfaceValue(data, field)
+	length := utf8.RuneCountInString(mustStringify(fieldVal))
+
+	if length < requiredLength {
+		return fmt.Errorf("The field %s should have a minimum length of %d characters", field, requiredLength)
+	}
+	return nil
+}

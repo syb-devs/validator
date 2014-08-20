@@ -8,68 +8,52 @@ import (
 )
 
 var (
-	ErrStructPointerExpected = errors.New("The subject for validation must be a pointer to a struct type")
 	ErrRuleNotFound          = errors.New("Rule not found")
+	ErrStructPointerExpected = errors.New("The subject for validation must be a pointer to a struct type")
+	ErrUnsupportedType       = errors.New("Unsupported type for rule")
 )
 
+var defaultValidator = New()
+
+type Rule interface {
+	Validate(data interface{}, field string, params map[string]string) error
+}
+
+type ruleMap map[string]Rule
+
 type validator struct {
-	Rules  rules
-	Errors inputErrors
-	err    error
+	registeredRules ruleMap
+	data            interface{}
+	errors          map[string][]error
+	logicError      error
 }
 
 func New() *validator {
-	return &validator{}
-}
-
-type field struct {
-	name  string
-	value interface{}
-}
-
-type inputError struct {
-	field   string
-	message string
-}
-
-func (e inputError) Message() string {
-	return e.message
-}
-
-func (e inputError) String() string {
-	return e.Message()
-}
-
-type inputErrors []inputError
-
-func (e inputErrors) String() string {
-	var r string
-	for _, err := range e {
-		r = r + err.String()
+	v := &validator{
+		registeredRules: make(ruleMap, 0),
+		errors:          make(map[string][]error, 0),
 	}
-	return r
+	v.RegisterRule("length", &lengthRule{})
+
+	return v
 }
 
-func (e inputErrors) Count() int {
-	return len(e)
+func (v *validator) RegisterRule(name string, rule Rule) {
+	//TODO: mutex read / write lock
+	v.registeredRules[name] = rule
 }
 
-type Rule interface {
-	Validate() (*inputError, error)
+func (v *validator) getRule(name string) (Rule, error) {
+	//TODO: mutex read lock
+	r := v.registeredRules[name]
+	if r != nil {
+		return r, nil
+	}
+	return nil, ErrRuleNotFound
 }
 
-type rules []Rule
-
-func (r rules) Count() int {
-	return len(r)
-}
-
-type RuleConstructor func(fieldName string, params string, dataStruct interface{}) (Rule, error)
-
-var ruleMap = make(map[string]RuleConstructor, 0)
-
-func RegisterRule(name string, ruleFunc RuleConstructor) {
-	ruleMap[name] = ruleFunc
+func RegisterRule(name string, rule Rule) {
+	defaultValidator.RegisterRule(name, rule)
 }
 
 type ruleExtractor struct {
@@ -91,78 +75,107 @@ func (e *ruleExtractor) next() bool {
 	return true
 }
 
-func (e *ruleExtractor) extract() rules {
-	rules := make(rules, 0)
-	index := e.current - 1
-	elem := reflect.TypeOf(e.subject).Elem().Field(index)
-	fieldName := elem.Name
-	var ruleName, ruleParams string
-
-	tag := elem.Tag.Get("validation")
-	if tag == "" {
-		return rules
-	}
-	for _, ruleStr := range strings.Split(tag, "|") {
-		ruleParts := strings.Split(ruleStr, ":")
-		ruleName = ruleParts[0]
-		if len(ruleParts) > 1 {
-			ruleParams = ruleParts[1]
-		} else {
-			ruleParams = ""
-		}
-		rule, err := getRule(ruleName, ruleParams, fieldName, e.subject)
-		if err == nil {
-			rules = append(rules, rule)
-		}
-	}
-
-	return rules
-}
+//func (e *ruleExtractor) extract() (string, []Rule) {
+//	rules := make([]Rule, 0)
+//	index := e.current - 1
+//	elem := reflect.TypeOf(e.subject).Elem().Field(index)
+//	fieldName := elem.Name
+//	var ruleName, ruleParams string
+//
+//	tag := elem.Tag.Get("validation")
+//	if tag == "" {
+//		return fieldName, rules
+//	}
+//	for _, ruleStr := range strings.Split(tag, "|") {
+//		ruleParts := strings.Split(ruleStr, ":")
+//		ruleName = ruleParts[0]
+//		if len(ruleParts) > 1 {
+//			ruleParams = ruleParts[1]
+//		} else {
+//			ruleParams = ""
+//		}
+//		rule, err := getRule(ruleName, ruleParams, fieldName, e.subject)
+//		if err == nil {
+//			rules = append(rules, rule)
+//		}
+//	}
+//
+//	return fieldName, rules
+//}
 
 func (v *validator) Validate(data interface{}) error {
 	if isStructPointer(data) == false {
 		return ErrStructPointerExpected
 	}
-	v.Errors = make(inputErrors, 0)
 
-	var rules rules
-	for extractor := newruleExtractor(data); extractor.next(); {
-		rules = extractor.extract()
-		v.Rules = append(v.Rules, rules...)
-	}
+	numFields := reflect.ValueOf(data).Elem().NumField()
 
-	for _, rule := range v.Rules {
-		v.safeCheck(rule)
-		if v.err != nil {
-			return v.err
+	for curField := 0; curField < numFields; curField++ {
+		err := v.validateField(curField)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (v *validator) safeCheck(rule Rule) {
+func (v *validator) validateField(i int) error {
+
+	elem := reflect.TypeOf(v.data).Elem().Field(i)
+	fieldName := elem.Name
+
+	tag := elem.Tag.Get("validation")
+	if tag == "" {
+		return nil
+	}
+
+	for _, ruleStr := range strings.Split(tag, "|") {
+		var j = strings.Index(tag, ":")
+		var ruleParamsStr = ruleStr[j+1:]
+		var ruleParams map[string]string
+
+		var ruleName = ruleStr[0:j]
+
+		ruleParams = make(map[string]string, 0)
+
+		for _, paramPart := range strings.Split(ruleParamsStr, ",") {
+			var tmpParam = strings.Split(paramPart, ":")
+			ruleParams[tmpParam[0]] = tmpParam[1]
+		}
+
+		var fieldCheck = func() {
+			rule, err := v.getRule(ruleName)
+			if err != nil {
+				v.logicError = err
+				return
+			}
+			err = rule.Validate(v.data, fieldName, ruleParams)
+			if err != nil {
+				v.errors[fieldName] = append(v.errors[fieldName], err)
+			}
+		}
+
+		v.safeExec(fieldCheck)
+	}
+	return nil
+}
+
+type safeFunc func()
+
+func (v *validator) safeExec(f safeFunc) {
 	defer func() {
 		if recErr := recover(); recErr != nil {
 			switch errv := recErr.(type) {
 			case string:
-				v.err = errors.New(errv)
+				v.logicError = errors.New(errv)
 			case error:
-				v.err = errv
+				v.logicError = errv
 			default:
-				v.err = errors.New(fmt.Sprintf("Panic recovered with type: %+v", recErr))
+				v.logicError = errors.New(fmt.Sprintf("Panic recovered with type: %+v", recErr))
 			}
 		}
 	}()
-
-	ierr, err := rule.Validate()
-
-	if ierr != nil {
-		v.Errors = append(v.Errors, *ierr)
-	}
-
-	if err != nil {
-		v.err = err
-	}
+	f()
 }
 
 func isStructPointer(data interface{}) bool {
@@ -173,14 +186,6 @@ func isStructPointer(data interface{}) bool {
 		return false
 	}
 	return true
-}
-
-func getRule(name string, params string, fieldName string, data interface{}) (Rule, error) {
-	ruleConstructor := ruleMap[name]
-	if ruleConstructor == nil {
-		return nil, ErrRuleNotFound
-	}
-	return ruleConstructor(fieldName, params, data)
 }
 
 //func fieldPresent(data interface{}, name string) bool {
