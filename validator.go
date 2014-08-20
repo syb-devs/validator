@@ -86,12 +86,13 @@ func (v *validator) getRule(name string) (Rule, error) {
 }
 
 func (v *validator) Validate(data interface{}) error {
-	if isStructPointer(data) == false {
-		return ErrStructPointerExpected
+	sv := reflect.ValueOf(data)
+	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
+		return v.Validate(sv.Elem().Interface())
 	}
 
 	v.data = data
-	numFields := reflect.ValueOf(v.data).Elem().NumField()
+	numFields := reflect.ValueOf(v.data).NumField()
 
 	for curField := 0; curField < numFields; curField++ {
 		err := v.validateField(curField)
@@ -104,7 +105,7 @@ func (v *validator) Validate(data interface{}) error {
 
 func (v *validator) validateField(i int) error {
 
-	elem := reflect.TypeOf(v.data).Elem().Field(i)
+	elem := reflect.TypeOf(v.data).Field(i)
 	fieldName := elem.Name
 
 	tag := elem.Tag.Get(tagName)
@@ -198,7 +199,7 @@ func isStructPointer(data interface{}) bool {
 }
 
 func getInterfaceValue(data interface{}, name string) interface{} {
-	return reflect.ValueOf(data).Elem().FieldByName(name).Interface()
+	return reflect.ValueOf(data).FieldByName(name).Interface()
 }
 
 func ruleString(ruleName, structField string, data interface{}) string {

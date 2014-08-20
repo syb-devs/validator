@@ -11,7 +11,7 @@ func TestMinLengthOK(t *testing.T) {
 	}
 
 	v := validator.New()
-	err := v.Validate(&data{Field: "fool"})
+	err := v.Validate(data{Field: "fool"})
 
 	if err != nil {
 		t.Errorf(err.Error())
@@ -28,7 +28,7 @@ func TestMinLengthKO(t *testing.T) {
 	}
 
 	v := validator.New()
-	err := v.Validate(&data{})
+	err := v.Validate(data{})
 
 	if err != nil {
 		t.Errorf(err.Error())

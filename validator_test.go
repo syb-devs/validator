@@ -11,27 +11,10 @@ func TestValidate(t *testing.T) {
 	}
 
 	v := validator.New()
-	err := v.Validate(&data{})
+	err := v.Validate(data{})
 
 	if err != nil {
 		t.Errorf(err.Error())
-	}
-}
-
-func TestStructPointer(t *testing.T) {
-	type data struct {
-		Field string
-	}
-
-	v := validator.New()
-	err := v.Validate(data{})
-
-	if err == nil {
-		t.Errorf("Expecting error because data is not a pointer to struct")
-	}
-
-	if err != validator.ErrStructPointerExpected {
-		t.Errorf("Expecting error message to be %s, got %s", validator.ErrStructPointerExpected, err)
 	}
 }
 
@@ -41,7 +24,7 @@ func TestUnexportedField(t *testing.T) {
 	}
 
 	v := validator.New()
-	err := v.Validate(&data{})
+	err := v.Validate(data{})
 
 	if err == nil {
 		t.Errorf("Expecting error: cannot return value obtained from unexported field or method")
@@ -54,7 +37,7 @@ func TestEmptyValidationTag(t *testing.T) {
 	}
 
 	v := validator.New()
-	err := v.Validate(&data{})
+	err := v.Validate(data{})
 
 	if err != nil {
 		t.Errorf("Error during validation")
