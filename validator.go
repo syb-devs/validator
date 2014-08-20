@@ -9,9 +9,9 @@ import (
 )
 
 var (
-	ErrRuleNotFound          = errors.New("Rule not found")
-	ErrStructPointerExpected = errors.New("The subject for validation must be a pointer to a struct type")
-	ErrUnsupportedType       = errors.New("Unsupported type for rule")
+	ErrRuleNotFound    = errors.New("Rule not found")
+	ErrStructExpected  = errors.New("The underlying type of the validation data must be struct or *struct")
+	ErrUnsupportedType = errors.New("Unsupported type for rule")
 )
 
 var (
@@ -89,6 +89,9 @@ func (v *validator) Validate(data interface{}) error {
 	sv := reflect.ValueOf(data)
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return v.Validate(sv.Elem().Interface())
+	}
+	if !isStruct(data) {
+		return ErrStructExpected
 	}
 
 	v.data = data
@@ -188,14 +191,11 @@ func (v *validator) safeExec(f safeFunc) {
 	f()
 }
 
-func isStructPointer(data interface{}) bool {
-	if reflect.TypeOf(data).Kind() != reflect.Ptr {
+func isStruct(data interface{}) bool {
+	if reflect.TypeOf(data).Kind() == reflect.Ptr {
 		return false
 	}
-	if reflect.ValueOf(data).Elem().Kind() != reflect.Struct {
-		return false
-	}
-	return true
+	return reflect.ValueOf(data).Kind() == reflect.Struct
 }
 
 func getInterfaceValue(data interface{}, name string) interface{} {

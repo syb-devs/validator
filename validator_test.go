@@ -43,3 +43,12 @@ func TestEmptyValidationTag(t *testing.T) {
 		t.Errorf("Error during validation")
 	}
 }
+
+func TestNotStruct(t *testing.T) {
+	v := validator.New()
+	err := v.Validate("string")
+
+	if err != validator.ErrStructExpected {
+		t.Errorf("Expecting %s, got %s", validator.ErrStructExpected, err)
+	}
+}
