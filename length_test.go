@@ -2,6 +2,8 @@ package validator_test
 
 import (
 	"bitbucket.org/simplifyourbusiness/validator"
+	// "fmt"
+	"strings"
 	"testing"
 )
 
@@ -36,5 +38,21 @@ func TestMinLengthKO(t *testing.T) {
 
 	if v.Errors().Len() != 1 {
 		t.Errorf("Expecting exactly one validation error")
+	}
+}
+
+func TestBadOperator(t *testing.T) {
+	type data struct {
+		Field string `validation:"length:op:ar,val:4" `
+	}
+	v := validator.New()
+	err := v.Validate(data{})
+
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	if !strings.Contains(v.Errors().String(), "Invalid operator") {
+		t.Errorf("Expected 'Invalid operator' error. Got : %s", v.Errors())
 	}
 }
