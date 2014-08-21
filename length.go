@@ -16,38 +16,39 @@ type lengthRule struct{}
 func (r *lengthRule) Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error) {
 	op := params["op"]
 
-	requiredLength, err := strconv.Atoi(params["val"])
-	if err != nil {
-		return nil, err
+	requiredLength, errorLogic := strconv.Atoi(params["val"])
+	if errorLogic != nil {
+		return
 	}
 
 	fieldVal := getInterfaceValue(data, field)
 	length := utf8.RuneCountInString(mustStringify(fieldVal))
 
 	var ok bool
-	var errOp string
+	var opLiteral string
 	switch op {
 	case "=":
 		ok = length == requiredLength
-		errOp = "equal to"
+		opLiteral = "equal to"
 	case ">":
 		ok = length > requiredLength
-		errOp = "greater than"
+		opLiteral = "greater than"
 	case ">=":
 		ok = length >= requiredLength
-		errOp = "greater than, or equal to"
+		opLiteral = "greater than, or equal to"
 	case "<":
 		ok = length < requiredLength
-		errOp = "lower than"
+		opLiteral = "lower than"
 	case "<=":
 		ok = length < requiredLength
-		errOp = "lower than, or equal to"
+		opLiteral = "lower than, or equal to"
 	default:
 		return nil, errors.New("Invalid operator")
 	}
 
-	if ok {
-		return nil, nil
+	if !ok {
+		errorInput = fmt.Errorf("The field %s should have a length %s %d. Actual length: %d", field, opLiteral, requiredLength, length)
+		return
 	}
-	return nil, fmt.Errorf("The field %s should have a length %s %d. Actual length: %d", field, errOp, requiredLength, length)
+	return
 }

@@ -42,7 +42,7 @@ func TestMinLengthKO(t *testing.T) {
 	}
 }
 
-func TestBadOperator(t *testing.T) {
+func TestMinLengthBadOperator(t *testing.T) {
 	type data struct {
 		Field string `validation:"length:op:ar,val:4" `
 	}
