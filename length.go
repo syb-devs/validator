@@ -1,3 +1,5 @@
+// Copyright 2014 Simplify Your Bussiness S.L. All rights reserved.
+
 package validator
 
 import (

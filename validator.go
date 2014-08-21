@@ -1,3 +1,6 @@
+// Copyright 2014 Simplify Your Bussiness S.L. All rights reserved.
+
+// Package validator implements validation of struct types using rules defined inside struct tags
 package validator
 
 import (
