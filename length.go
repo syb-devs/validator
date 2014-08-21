@@ -9,12 +9,12 @@ import (
 
 type lengthRule struct{}
 
-func (r *lengthRule) Validate(data interface{}, field string, params map[string]string) error {
+func (r *lengthRule) Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error) {
 	op := params["op"]
 
 	requiredLength, err := strconv.Atoi(params["val"])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fieldVal := getInterfaceValue(data, field)
@@ -39,11 +39,11 @@ func (r *lengthRule) Validate(data interface{}, field string, params map[string]
 		ok = length < requiredLength
 		errOp = "lower than, or equal to"
 	default:
-		return errors.New("Invalid operator")
+		return nil, errors.New("Invalid operator")
 	}
 
 	if ok {
-		return nil
+		return nil, nil
 	}
-	return fmt.Errorf("The field %s should have a length %s %d. Actual length: %d", field, errOp, requiredLength, length)
+	return nil, fmt.Errorf("The field %s should have a length %s %d. Actual length: %d", field, errOp, requiredLength, length)
 }

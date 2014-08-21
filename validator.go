@@ -17,11 +17,10 @@ var (
 
 var (
 	defaultValidator = New()
-	tagName          = "validation"
 )
 
 type Rule interface {
-	Validate(data interface{}, field string, params map[string]string) error
+	Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error)
 }
 
 type errList map[string][]error
@@ -50,6 +49,7 @@ type validator struct {
 	errors          errList
 	logicError      error
 	mu              sync.RWMutex
+	tagName         string
 }
 
 func RegisterRule(name string, rule Rule) {
@@ -61,23 +61,36 @@ func Validate(data interface{}) error {
 }
 
 func TagName(name string) {
-	tagName = name
+	defaultValidator.tagName = name
 }
 
 func New() *validator {
 	v := &validator{
 		registeredRules: make(ruleMap, 0),
 		errors:          make(errList, 0),
+		tagName:         "validation",
 	}
 	v.RegisterRule("length", &lengthRule{})
+	v.RegisterRule("regexp", &regexpRule{})
 
 	return v
+}
+
+func (v *validator) TagName(name string) {
+	v.tagName = name
 }
 
 func (v *validator) RegisterRule(name string, rule Rule) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.registeredRules[name] = rule
+}
+
+func (v *validator) copy() *validator {
+	return &validator{
+		tagName:         v.tagName,
+		registeredRules: v.registeredRules,
+	}
 }
 
 func (v *validator) getRule(name string) (Rule, error) {
@@ -126,7 +139,7 @@ func (v *validator) validateField(i int) error {
 		return nil
 	}
 
-	tag := elem.Tag.Get(tagName)
+	tag := elem.Tag.Get(v.tagName)
 	if tag == "" {
 		return nil
 	}
@@ -154,9 +167,13 @@ func (v *validator) validateField(i int) error {
 				v.logicError = err
 				return
 			}
-			err = rule.Validate(v.data, fieldName, ruleParams)
-			if err != nil {
-				v.errors[fieldName] = append(v.errors[fieldName], err)
+			logicErr, inputErr := rule.Validate(v.data, fieldName, ruleParams)
+			if logicErr != nil {
+				v.logicError = logicErr
+				return
+			}
+			if inputErr != nil {
+				v.errors[fieldName] = append(v.errors[fieldName], inputErr)
 			}
 		}
 
