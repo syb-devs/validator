@@ -36,7 +36,7 @@ func TestMinLengthKO(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	if v.Errors().Len() != 1 {
+	if v.Errors() == nil || v.Errors().Len() != 1 {
 		t.Errorf("Expecting exactly one validation error")
 	}
 }
@@ -52,7 +52,7 @@ func TestBadOperator(t *testing.T) {
 		t.Errorf(err.Error())
 	}
 
-	if !strings.Contains(v.Errors().String(), "Invalid operator") {
+	if v.Errors() == nil || !strings.Contains(v.Errors().String(), "Invalid operator") {
 		t.Errorf("Expected 'Invalid operator' error. Got : %s", v.Errors())
 	}
 }

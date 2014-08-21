@@ -9,9 +9,10 @@ import (
 )
 
 var (
-	ErrRuleNotFound    = errors.New("Rule not found")
-	ErrStructExpected  = errors.New("The underlying type of the validation data must be struct or *struct")
-	ErrUnsupportedType = errors.New("Unsupported type for rule")
+	ErrRuleNotFound       = errors.New("Rule not found")
+	ErrStructExpected     = errors.New("The underlying type of the validation data must be struct or *struct")
+	ErrUnsupportedType    = errors.New("Unsupported type for rule")
+	ErrInvalidParamFormat = errors.New("Invalid format for validation rule parameters")
 )
 
 var (
@@ -55,6 +56,10 @@ func RegisterRule(name string, rule Rule) {
 	defaultValidator.RegisterRule(name, rule)
 }
 
+func Validate(data interface{}) error {
+	return defaultValidator.Validate(data)
+}
+
 func TagName(name string) {
 	tagName = name
 }
@@ -90,7 +95,7 @@ func (v *validator) Validate(data interface{}) error {
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
 		return v.Validate(sv.Elem().Interface())
 	}
-	if !isStruct(data) {
+	if !IsStruct(data) {
 		return ErrStructExpected
 	}
 
@@ -109,7 +114,17 @@ func (v *validator) Validate(data interface{}) error {
 func (v *validator) validateField(i int) error {
 
 	elem := reflect.TypeOf(v.data).Field(i)
+	if !fieldIsExported(elem) {
+		return nil
+	}
 	fieldName := elem.Name
+
+	//TODO: check if field is a pointer
+	fieldVal := reflect.ValueOf(v.data).Field(i).Interface()
+	if IsStruct(fieldVal) {
+		fmt.Println("TODO: validate struct field")
+		return nil
+	}
 
 	tag := elem.Tag.Get(tagName)
 	if tag == "" {
@@ -128,7 +143,7 @@ func (v *validator) validateField(i int) error {
 		for _, paramPart := range strings.Split(ruleParamsStr, ",") {
 			var tmpParam = strings.Split(paramPart, ":")
 			if len(tmpParam) != 2 {
-				return errors.New("Invalid format for params")
+				return ErrInvalidParamFormat
 			}
 			ruleParams[tmpParam[0]] = tmpParam[1]
 		}
@@ -191,11 +206,16 @@ func (v *validator) safeExec(f safeFunc) {
 	f()
 }
 
-func isStruct(data interface{}) bool {
-	if reflect.TypeOf(data).Kind() == reflect.Ptr {
-		return false
+func IsStruct(data interface{}) bool {
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		return IsStruct(v.Elem().Interface())
 	}
-	return reflect.ValueOf(data).Kind() == reflect.Struct
+	return v.Kind() == reflect.Struct
+}
+
+func fieldIsExported(f reflect.StructField) bool {
+	return len(f.PkgPath) == 0
 }
 
 func getInterfaceValue(data interface{}, name string) interface{} {
