@@ -1,9 +1,8 @@
 package validator
 
 import (
-	"regexp"
-	// "errors"
 	"fmt"
+	"regexp"
 )
 
 type regexpRule struct{}

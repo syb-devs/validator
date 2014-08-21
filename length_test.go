@@ -4,7 +4,6 @@ package validator_test
 
 import (
 	"bitbucket.org/simplifyourbusiness/validator"
-	// "fmt"
 	"strings"
 	"testing"
 )
