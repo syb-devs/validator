@@ -51,6 +51,29 @@ func (e errList) Len() int {
 // ruleMap stores validation rules that will be accessed by its name.
 type ruleMap map[string]Rule
 
+// fieldPrefix contains the field prefix for fields of nested structs.
+type fieldPrefix []string
+
+// push appends a prefix to the slice.
+func (fp *fieldPrefix) push(prefix string) {
+	*fp = append(*fp, prefix)
+}
+
+// pop returns the last prefix form the slice.
+func (fp *fieldPrefix) pop() (p string) {
+	*fp, p = (*fp)[:len(*fp)-1], (*fp)[len(*fp)-1]
+	return
+}
+
+// String returns a literal representation of the field prefix.
+func (fp *fieldPrefix) String() string {
+	ret := ""
+	for _, prefix := range *fp {
+		ret = ret + prefix + "."
+	}
+	return ret
+}
+
 type validator struct {
 	registeredRules ruleMap
 	data            interface{}
@@ -58,7 +81,7 @@ type validator struct {
 	logicError      error
 	mu              sync.RWMutex
 	tagName         string
-	fieldPrefix     string
+	fieldPrefix     fieldPrefix
 }
 
 // RegisterRule registers a validation rule in the default validator.
@@ -72,24 +95,32 @@ func Validate(data interface{}) error {
 	return defaultValidator.Validate(data)
 }
 
-func TagName(name string) {
-	defaultValidator.tagName = name
+// SetTagName sets the name of the struct tag to extract validation rules from.
+func SetTagName(name string) {
+	defaultValidator.SetTagName(name)
+}
+
+// Zeroed validator returns a validator with all its fields initialised.
+func zeroedValidator() *validator {
+	return &validator{
+		registeredRules: make(ruleMap, 0),
+		errors:          make(errList, 0),
+		fieldPrefix:     make(fieldPrefix, 0),
+	}
 }
 
 // New returns a new validator, set up with the default rules and options.
 func New() *validator {
-	v := &validator{
-		registeredRules: make(ruleMap, 0),
-		errors:          make(errList, 0),
-		tagName:         "validation",
-	}
+	v := zeroedValidator()
+	v.tagName = "validation"
 	v.RegisterRule("length", &lengthRule{})
 	v.RegisterRule("regexp", &regexpRule{})
 
 	return v
 }
 
-func (v *validator) TagName(name string) {
+// SetTagName sets the name of the struct tag to extract validation rules from.
+func (v *validator) SetTagName(name string) {
 	v.tagName = name
 }
 
@@ -100,15 +131,16 @@ func (v *validator) RegisterRule(name string, rule Rule) {
 	v.registeredRules[name] = rule
 }
 
-func (v *validator) copy() *validator {
-	return &validator{
-		tagName:         v.tagName,
-		registeredRules: v.registeredRules,
-	}
+// Copy returns a copy new validator using the same configuration.
+func (v *validator) Copy() *validator {
+	vc := zeroedValidator()
+	vc.tagName = v.tagName
+	vc.registeredRules = v.registeredRules
+
+	return vc
 }
 
 // getRule retrieves a rule from the rule map using a given name.
-
 func (v *validator) getRule(name string) (Rule, error) {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
@@ -119,13 +151,8 @@ func (v *validator) getRule(name string) (Rule, error) {
 	return nil, ErrRuleNotFound
 }
 
-// setFieldPrefix sets the literal used to prefix fields of nested structs.
-func (v *validator) setFieldPrefix(prefix string) {
-	v.fieldPrefix = prefix
-}
-
-// Validate runs the actual validation of the struct, applying the rules registered in the validator, returning
-// any logic error that might happen.
+// Validate runs the actual validation of the struct, applying the rules registered in the validator,
+// returning any logic error that might happen.
 // To get the actual validation errors, use the method Errors().
 func (v *validator) Validate(data interface{}) error {
 	sv := reflect.ValueOf(data)
@@ -160,8 +187,8 @@ func (v *validator) validateField(i int) error {
 	//TODO: check if field is a pointer
 	fieldVal := reflect.ValueOf(v.data).Field(i).Interface()
 	if IsStruct(fieldVal) {
-		v.setFieldPrefix(fieldName + ".")
-		defer v.setFieldPrefix("")
+		v.fieldPrefix.push(fieldName)
+		defer v.fieldPrefix.pop()
 
 		err := v.Validate(fieldVal)
 
@@ -206,7 +233,7 @@ func (v *validator) validateField(i int) error {
 				return
 			}
 			if inputErr != nil {
-				key := v.fieldPrefix + fieldName
+				key := v.fieldPrefix.String() + fieldName
 				v.errors[key] = append(v.errors[key], inputErr)
 			}
 		}
