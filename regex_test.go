@@ -9,7 +9,7 @@ import (
 
 func TestRegexMatchKO(t *testing.T) {
 	type data struct {
-		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
+		Field string `validation:"regexp:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
 	}
 
 	v := validator.New()
@@ -26,7 +26,7 @@ func TestRegexMatchKO(t *testing.T) {
 
 func TestRegexCompileKO(t *testing.T) {
 	type data struct {
-		Field string `validation:"regexp:val:((,allowEmpty:1" `
+		Field string `validation:"regexp:((,allowEmpty:1" `
 	}
 
 	v := validator.New()
@@ -43,7 +43,7 @@ func TestRegexCompileKO(t *testing.T) {
 
 func TestRegexMatchOK(t *testing.T) {
 	type data struct {
-		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
+		Field string `validation:"regexp:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
 	}
 
 	v := validator.New()
@@ -60,7 +60,7 @@ func TestRegexMatchOK(t *testing.T) {
 
 func TestRegexCompileOK(t *testing.T) {
 	type data struct {
-		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
+		Field string `validation:"regexp:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
 	}
 
 	v := validator.New()
@@ -77,7 +77,7 @@ func TestRegexCompileOK(t *testing.T) {
 
 func TestRegexAllowEmptyOK(t *testing.T) {
 	type data1 struct {
-		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
+		Field string `validation:"regexp:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
 	}
 
 	v := validator.New()
@@ -91,7 +91,7 @@ func TestRegexAllowEmptyOK(t *testing.T) {
 	}
 
 	type data2 struct {
-		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:0" `
+		Field string `validation:"regexp:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:0" `
 	}
 
 	v = validator.New()

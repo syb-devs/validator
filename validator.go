@@ -24,7 +24,7 @@ var (
 
 // Rule represents a validation rule that will be applied to a struct field value.
 type Rule interface {
-	Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error)
+	Validate(data interface{}, field string, params []string, namedParams map[string]string) (errorLogic, errorInput error)
 }
 
 // errList is used to store struct validation errors grouped by field name.
@@ -206,18 +206,24 @@ func (v *validator) validateField(i int) error {
 	for _, ruleStr := range strings.Split(tag, "|") {
 		var j = strings.Index(tag, ":")
 		var ruleParamsStr = ruleStr[j+1:]
-		var ruleParams map[string]string
+		var namedParams map[string]string
+		var ruleParams []string
 
 		var ruleName = ruleStr[0:j]
 
-		ruleParams = make(map[string]string, 0)
+		namedParams = make(map[string]string, 0)
 
 		for _, paramPart := range strings.Split(ruleParamsStr, ",") {
-			var tmpParam = strings.Split(paramPart, ":")
-			if len(tmpParam) != 2 {
-				return ErrInvalidParamFormat
+			isNamed := strings.Index(paramPart, ":") != -1
+			if isNamed {
+				var tmpParam = strings.Split(paramPart, ":")
+				if len(tmpParam) != 2 {
+					return ErrInvalidParamFormat
+				}
+				namedParams[tmpParam[0]] = tmpParam[1]
+			} else {
+				ruleParams = append(ruleParams, paramPart)
 			}
-			ruleParams[tmpParam[0]] = tmpParam[1]
 		}
 
 		var fieldCheck = func() {
@@ -227,7 +233,7 @@ func (v *validator) validateField(i int) error {
 				return
 			}
 
-			logicErr, inputErr := rule.Validate(v.data, fieldName, ruleParams)
+			logicErr, inputErr := rule.Validate(v.data, fieldName, ruleParams, namedParams)
 			if logicErr != nil {
 				v.logicError = logicErr
 				return

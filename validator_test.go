@@ -9,7 +9,7 @@ import (
 
 func TestValidate(t *testing.T) {
 	type data struct {
-		Field string `validation:"length:op:>,val:4" `
+		Field string `validation:"length:>,4" `
 	}
 
 	v := validator.New()
@@ -51,7 +51,7 @@ func TestNotStruct(t *testing.T) {
 
 func TestEmbeddedStruct(t *testing.T) {
 	type embed struct {
-		InnerField string `validation:"length:op:>,val:4" `
+		InnerField string `validation:"length:>,4" `
 	}
 
 	type data struct {

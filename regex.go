@@ -9,20 +9,28 @@ import (
 	"strconv"
 )
 
-var ErrEmptyRegexp = errors.New("No valid regexp was found in the val parameter")
+var (
+	ErrEmptyRegexp      = errors.New("No valid regexp was found in the first parameter")
+	ErrRegexpParamCount = errors.New("This rule needs one mandatory param, the regular expression")
+)
 
 type regexpRule struct{}
 
 // Validate checks that the field value matches the regexp passed in the val parameter
-func (r *regexpRule) Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error) {
+func (r *regexpRule) Validate(data interface{}, field string, params []string, namedParams map[string]string) (errorLogic, errorInput error) {
 
-	regex := params["val"]
+	if len(params) != 1 {
+		errorLogic = ErrRegexpParamCount
+		return
+	}
+
+	regex := params[0]
 	if regex == "" {
 		errorLogic = ErrEmptyRegexp
 		return
 	}
 
-	allowEmpty, errorLogic := strconv.ParseBool(params["allowEmpty"])
+	allowEmpty, errorLogic := strconv.ParseBool(namedParams["allowEmpty"])
 	if errorLogic != nil {
 		return
 	}

@@ -9,14 +9,21 @@ import (
 	"unicode/utf8"
 )
 
+var ErrLengthParamCount = errors.New("This rule needs two mandatory params, operator and value")
+
 // lengthRule struct holds Validate() method to satisfy the Validator interface.
 type lengthRule struct{}
 
 // Validate checks that the given data conforms to the length constraints given as parameters.
-func (r *lengthRule) Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error) {
-	op := params["op"]
+func (r *lengthRule) Validate(data interface{}, field string, params []string, namedParams map[string]string) (errorLogic, errorInput error) {
 
-	requiredLength, errorLogic := strconv.Atoi(params["val"])
+	if len(params) != 2 {
+		errorLogic = ErrLengthParamCount
+		return
+	}
+	op := params[0]
+
+	requiredLength, errorLogic := strconv.Atoi(params[1])
 	if errorLogic != nil {
 		return
 	}

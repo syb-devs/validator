@@ -10,7 +10,7 @@ import (
 
 func TestMinLengthOK(t *testing.T) {
 	type data struct {
-		Field string `validation:"length:op:>=,val:4" `
+		Field string `validation:"length:>=,4" `
 	}
 
 	v := validator.New()
@@ -27,7 +27,7 @@ func TestMinLengthOK(t *testing.T) {
 
 func TestMinLengthKO(t *testing.T) {
 	type data struct {
-		Field string `validation:"length:op:>,val:4" `
+		Field string `validation:"length:>,4" `
 	}
 
 	v := validator.New()
@@ -44,7 +44,7 @@ func TestMinLengthKO(t *testing.T) {
 
 func TestMinLengthBadOperator(t *testing.T) {
 	type data struct {
-		Field string `validation:"length:op:ar,val:4" `
+		Field string `validation:"length:ar,4" `
 	}
 	v := validator.New()
 	err := v.Validate(data{})
