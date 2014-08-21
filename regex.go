@@ -3,6 +3,7 @@ package validator
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 )
 
 type regexpRule struct{}
@@ -11,13 +12,20 @@ func (r *regexpRule) Validate(data interface{}, field string, params map[string]
 
 	regex := params["val"]
 
+	allowEmpty, ok := strconv.ParseBool(params["allowEmpty"])
+
+	fieldVal := getInterfaceValue(data, field)
+
+	if ok == nil && allowEmpty && fieldVal == "" {
+		return nil, nil
+	}
+
 	compiledRegex, err := regexp.Compile(regex)
 
 	if err != nil {
 		return fmt.Errorf("The field %s does not contain a valid regexp", field), nil
 	}
 
-	fieldVal := getInterfaceValue(data, field)
 	if !compiledRegex.MatchString(fieldVal.(string)) {
 		return nil, fmt.Errorf("The field %s does not match regexp", field)
 	}
