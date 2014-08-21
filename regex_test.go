@@ -73,3 +73,35 @@ func TestRegexCompileOK(t *testing.T) {
 		t.Errorf("No input errors were expected because there is a regexp compile error")
 	}
 }
+
+func TestRegexAllowEmptyOK(t *testing.T) {
+	type data1 struct {
+		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:1" `
+	}
+
+	v := validator.New()
+	err := v.Validate(data1{Field: ""})
+	if err != nil {
+		t.Errorf("No logic error was expected, allowEmpty:1")
+	}
+
+	if v.Errors() != nil {
+		t.Errorf("No input errors were expected, allowEmpty:1")
+	}
+
+	type data2 struct {
+		Field string `validation:"regexp:val:^[0-9a-z]+@[0-9a-z]+(\\.[0-9a-z]+)+$,allowEmpty:0" `
+	}
+
+	v = validator.New()
+	err = v.Validate(data2{Field: ""})
+
+	if err != nil {
+		t.Errorf("No logic error was expected, allowEmpty:0")
+	}
+
+	if v.Errors() == nil || v.Errors().Len() != 1 {
+		t.Errorf("Expecting exactly one validation error, allowEmpty:0")
+	}
+
+}
