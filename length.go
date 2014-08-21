@@ -7,8 +7,10 @@ import (
 	"unicode/utf8"
 )
 
+// lengthRule struct holds Validate() method to satisfy the Validator interface.
 type lengthRule struct{}
 
+// Validate checks that the given data conforms to the length constraints given as parameters.
 func (r *lengthRule) Validate(data interface{}, field string, params map[string]string) (errorLogic, errorInput error) {
 	op := params["op"]
 
