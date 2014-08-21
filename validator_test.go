@@ -16,11 +16,18 @@ func TestValidate(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
+
+	// Validate passing a pointer
+	err = v.Validate(&data{})
+
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 }
 
 func TestEmptyValidationTag(t *testing.T) {
 	type data struct {
-		field string
+		Field string
 	}
 
 	v := validator.New()
@@ -41,19 +48,29 @@ func TestNotStruct(t *testing.T) {
 }
 
 func TestEmbeddedStruct(t *testing.T) {
-	type embed struct{}
+	type embed struct {
+		InnerField string `validation:"length:op:>,val:4" `
+	}
+
 	type data struct {
-		field embed
+		OuterField embed
 	}
 
 	v := validator.New()
-	err := v.Validate(data{field: embed{}})
+	err := v.Validate(data{OuterField: embed{InnerField: "foo"}})
 	if err != nil {
 		t.Error(err.Error())
 	}
+
+	errors := v.ErrorsByField("OuterField.InnerField")
+	numErrors := len(*errors)
+
+	if numErrors != 1 {
+		t.Errorf("Expected exactly 1 validation error, got %d", numErrors)
+	}
 }
 
-type jar struct{}
+type foo struct{}
 
 var isStructTests = []struct {
 	data     interface{} // input
@@ -61,8 +78,8 @@ var isStructTests = []struct {
 }{
 	{"gopher", false},
 	{1845, false},
-	{jar{}, true},
-	{&jar{}, true},
+	{foo{}, true},
+	{&foo{}, true},
 }
 
 func TestIsStruct(t *testing.T) {

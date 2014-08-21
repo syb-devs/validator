@@ -50,6 +50,7 @@ type validator struct {
 	errors          errList
 	logicError      error
 	mu              sync.RWMutex
+	fieldPrefix     string
 }
 
 func RegisterRule(name string, rule Rule) {
@@ -90,6 +91,10 @@ func (v *validator) getRule(name string) (Rule, error) {
 	return nil, ErrRuleNotFound
 }
 
+func (v *validator) setFieldPrefix(prefix string) {
+	v.fieldPrefix = prefix
+}
+
 func (v *validator) Validate(data interface{}) error {
 	sv := reflect.ValueOf(data)
 	if sv.Kind() == reflect.Ptr && !sv.IsNil() {
@@ -122,7 +127,14 @@ func (v *validator) validateField(i int) error {
 	//TODO: check if field is a pointer
 	fieldVal := reflect.ValueOf(v.data).Field(i).Interface()
 	if IsStruct(fieldVal) {
-		fmt.Println("TODO: validate struct field")
+		v.setFieldPrefix(fieldName + ".")
+		defer v.setFieldPrefix("")
+
+		err := v.Validate(fieldVal)
+
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -156,7 +168,8 @@ func (v *validator) validateField(i int) error {
 			}
 			err = rule.Validate(v.data, fieldName, ruleParams)
 			if err != nil {
-				v.errors[fieldName] = append(v.errors[fieldName], err)
+				key := v.fieldPrefix + fieldName
+				v.errors[key] = append(v.errors[key], err)
 			}
 		}
 
