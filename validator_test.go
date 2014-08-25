@@ -66,8 +66,7 @@ func TestEmbeddedStruct(t *testing.T) {
 
 	errors := v.ErrorsByField("OuterField.InnerField")
 	if errors == nil {
-		t.Errorf("No errors retrieved for OuterField.InnerField")
-		return
+		t.Fatalf("No errors retrieved for OuterField.InnerField")
 	}
 	numErrors := len(*errors)
 
