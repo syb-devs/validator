@@ -3,7 +3,7 @@
 package validator_test
 
 import (
-	"bitbucket.org/simplifyourbusiness/validator"
+	"bitbucket.org/syb-devs/validator"
 	"strings"
 	"testing"
 )
