@@ -3,7 +3,7 @@
 package validator_test
 
 import (
-	"bitbucket.org/syb-devs/validator"
+	"github.com/syb-devs/validator"
 	"testing"
 )
 
